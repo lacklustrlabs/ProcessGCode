@@ -796,7 +796,15 @@ def processFanAndTemps(line, fan_speed):
                 else: 
                     x = int(temp.group(2))
                     if x>0: 
-                        ext_temperature = clamp(int(x*args.temperature), args.minimum_temperature, args.maximum_temperature)
+                        ext_temperature = int(x*args.temperature)
+                        if args.temperatureladder:
+                            for (z,t) in args.temperatureladder:
+                                if last_z < z:
+                                    break
+                                else:
+                                   ext_temperature = t 
+                        
+                        ext_temperature = clamp(ext_temperature, args.minimum_temperature, args.maximum_temperature)                        
                         print (Fore.WHITE+Back.RED + "Extruder temperature command:  " + str(x) + " adjusting to " + str(ext_temperature))
                         insertline ("M10"+get_t_code(temp.group(1))+" S"+str(ext_temperature)+" ; existing extruder temp command adjusted",fo)
                         if ext_temperature > peak_ext_temperature:
@@ -817,6 +825,15 @@ def processFanAndTemps(line, fan_speed):
                         peak_bed_temperature = bed_temperature
                     line = ""
             return fan_speed, line
+
+# splits a string in the form "z0:t0,z1:t1,...zn:tn" into an array
+# of int tuples: [(z0,t0),(z1,t1),..,(zn,tn)]
+def tempLadderParser(input):
+    rv = []
+    for zt in input.split(','):
+        (z,t) = zt.split(':')
+        rv.append((int(z),int(t)))
+    return rv
 
 def main(argv):
    global layer_height,max_layer_height,linenumbers,current_file,lines,layer_heights,foo,foa,fo,output_relative_movement,relative_movement,linenumber,last_path_name,endquote,version_string,lcd_comment_string,bed_temperature,args,move_threshold,fan_speed,current_layer,override_fan_on_this_layer,override_fan_off_this_layer,has_raft,ext_temperature
@@ -843,6 +860,7 @@ def main(argv):
    group2 = parser.add_argument_group( 'Fan and Temperature control options')
    group2.add_argument('-f', '--fan', metavar='multiplier', type=float, default=1.0, help='Multiply all fan speeds by this.  This only affects fan speeds that were in the original file, not those fan speed commands added by options in this script')
    group2.add_argument('-t', '--temperature', metavar='multiplier', type=float, default=1.0, help='Multiply all extruder temperatures by this. ')
+   group2.add_argument('--temperatureladder', type=tempLadderParser, default=None, help='Implement a temperature ladder, argument should be a list of integer tuples: z0:temp0,z1:temp1,...  Once the Z height of z0 is reached extruder temp will be set to temp0. Until z1 is reached, then the temp will be set to temp1...')
    group2.add_argument('-j', '--minimum-temperature', default = 170, metavar='degrees', type=int,  help='Enforce a minimum temperature for all extruder temperature settings (including raft cooling).  Will not override extruder off (temp=0) commands.')
    group2.add_argument('-n', '--maximum-temperature', default = 250, metavar='degrees', type=int,  help='Enforce a maximum temperature for all extruder temperature settings')
    group2.add_argument('--wait-temp', metavar=('none, first, or all'), choices=('none','all','first'), help='Wait for extruder temperature changes')
