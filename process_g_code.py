@@ -190,6 +190,15 @@ def remove_non_comment_spaces(line):
                 a += 1
             return line2    
 
+def getTempAtZ(temperatureladder, currentZ):
+    rv=-1;
+    for (z,t) in args.temperatureladder:
+        if currentZ < z:
+            break
+        else:
+            rv = t
+    return rv 
+                                   
 # ##################################################################
 # insertline
 # writes a line to the output file and echos it to the console
@@ -684,6 +693,13 @@ def startlayer (line):
         
     if args.cool_bed and current_layer==args.cool_bed[1]:
         insertline("M1"+get_t_code("4",True)+"0 S"+str(int((args.bed*bed_temperature)-args.cool_bed[0]))+conditional_comment(" ; dropping bed temperature by "+str(args.cool_bed[1]),False),fo)
+
+    # insert a temperature line     
+    if args.temperatureladder:
+        t = getTempAtZ(args.temperatureladder, layer_height)
+        if (t>0):
+           insertline("M104 S"+str(t) + "; inserted by temperature ladder", fo)
+           
     return line    
 
 # find which input  file has the lowest height 
@@ -798,11 +814,7 @@ def processFanAndTemps(line, fan_speed):
                     if x>0: 
                         ext_temperature = int(x*args.temperature)
                         if args.temperatureladder:
-                            for (z,t) in args.temperatureladder:
-                                if last_z < z:
-                                    break
-                                else:
-                                   ext_temperature = t 
+                            ext_temperature = max(ext_temperature,getTempAtZ(args.temperatureladder, last_z))
                         
                         ext_temperature = clamp(ext_temperature, args.minimum_temperature, args.maximum_temperature)                        
                         print (Fore.WHITE+Back.RED + "Extruder temperature command:  " + str(x) + " adjusting to " + str(ext_temperature))
